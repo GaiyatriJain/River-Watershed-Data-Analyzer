@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WaterWatch — River & Watershed Data Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0f1a;
+    --surface: #0e1623;
+    --surface2: #131e2e;
+    --border: #1e2f47;
+    --water: #00c8ff;
+    --water-dim: #0088bb;
+    --water-glow: rgba(0,200,255,0.15);
+    --green: #00ff9d;
+    --red: #ff4466;
+    --yellow: #ffcc00;
+    --text: #c8dff0;
+    --text-dim: #5a7a99;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* animated water background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 80%, rgba(0,80,150,0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 20%, rgba(0,150,200,0.10) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .grid-overlay {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,200,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,200,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative;
+    z-index: 10;
+    padding: 36px 40px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .logo-block { display: flex; flex-direction: column; gap: 4px; }
+
+  .logo-eyebrow {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--water);
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+
+  h1 {
+    font-family: var(--sans);
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff;
+    line-height: 1;
+  }
+
+  h1 span { color: var(--water); }
+
+  .tagline {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    margin-top: 6px;
+  }
+
+  .header-links { display: flex; gap: 12px; align-items: center; }
+
+  .btn-github {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+  .btn-github:hover { border-color: var(--water); color: var(--water); }
+
+  /* ── MAIN LAYOUT ── */
+  .app {
+    position: relative;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: 1fr;
+    height: calc(100vh - 120px);
+    min-height: 500px;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-title {
+    padding: 16px 20px;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .menu-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
+  .menu-item:hover { color: var(--text); background: rgba(0,200,255,0.04); }
+
+  .menu-item.active {
+    color: var(--water);
+    border-left-color: var(--water);
+    background: var(--water-glow);
+  }
+
+  .menu-num {
+    font-size: 10px;
+    color: var(--text-dim);
+    opacity: 0.5;
+    min-width: 14px;
+  }
+  .menu-item.active .menu-num { color: var(--water); opacity: 0.7; }
+
+  .sidebar-footer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── MAIN PANEL ── */
+  .main-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(14,22,35,0.6);
+    backdrop-filter: blur(8px);
+  }
+
+  .panel-title {
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.01em;
+  }
+
+  .panel-sub { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+
+  .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  .panel-content::-webkit-scrollbar { width: 4px; }
+  .panel-content::-webkit-scrollbar-track { background: transparent; }
+  .panel-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── VIEWS ── */
+  .view { display: none; }
+  .view.active { display: block; animation: fadeIn 0.2s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── STATS GRID ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--water);
+    opacity: 0.4;
+  }
+
+  .stat-card.highlight::before { opacity: 1; }
+  .stat-card.warn::before { background: var(--yellow); opacity: 1; }
+  .stat-card.danger::before { background: var(--red); opacity: 1; }
+
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-family: var(--sans);
+    font-size: 26px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+  }
+
+  .stat-unit { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+  .stat-sub  { font-size: 10px; color: var(--water); margin-top: 6px; }
+
+  /* ── TABLE ── */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .data-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .data-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(30,47,71,0.5);
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .data-table tr:hover td { background: rgba(0,200,255,0.03); }
+
+  .data-table tr.alert-row td { color: var(--red); }
+  .data-table tr.warn-row  td { color: var(--yellow); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .badge-red    { background: rgba(255,68,102,0.15); color: var(--red); }
+  .badge-yellow { background: rgba(255,204,0,0.15);  color: var(--yellow); }
+  .badge-green  { background: rgba(0,255,157,0.12);  color: var(--green); }
+  .badge-blue   { background: rgba(0,200,255,0.12);  color: var(--water); }
+
+  /* ── THRESHOLD CONTROL ── */
+  .controls-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+
+  .ctrl-label {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .ctrl-input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--water);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 6px 10px;
+    width: 130px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .ctrl-input:focus { border-color: var(--water); }
+
+  .ctrl-btn {
+    background: rgba(0,200,255,0.1);
+    border: 1px solid var(--water-dim);
+    border-radius: 4px;
+    color: var(--water);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 7px 16px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .ctrl-btn:hover { background: rgba(0,200,255,0.18); }
+
+  /* ── SECTION TITLE ── */
+  .section-title {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── SPARKLINE BAR ── */
+  .bar-wrap { margin-bottom: 24px; }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    font-size: 11px;
+  }
+
+  .bar-label { min-width: 160px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .bar-fill  { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(0.16,1,0.3,1); }
+  .bar-val   { min-width: 50px; text-align: right; color: var(--text); }
+
+  /* ── STATION SELECT ── */
+  .station-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .station-tab {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--text-dim);
+    transition: all 0.15s;
+    background: var(--surface);
+  }
+
+  .station-tab:hover { border-color: var(--water-dim); color: var(--text); }
+  .station-tab.active { border-color: var(--water); color: var(--water); background: var(--water-glow); }
+
+  /* ── TERMINAL EXPORT ── */
+  .terminal-box {
+    background: #060c14;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    font-size: 12px;
+    line-height: 2;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .t-prompt { color: var(--water); }
+  .t-dim    { color: var(--text-dim); }
+  .t-val    { color: var(--green); }
+  .t-warn   { color: var(--yellow); }
+  .t-err    { color: var(--red); }
+  .t-white  { color: #fff; }
+
+  .export-btn {
+    margin-top: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    background: rgba(0,255,157,0.08);
+    border: 1px solid rgba(0,255,157,0.3);
+    border-radius: 4px;
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  .export-btn:hover { background: rgba(0,255,157,0.14); }
+
+  /* ── EMPTY STATE ── */
+  .empty { text-align: center; color: var(--text-dim); padding: 60px 20px; font-size: 12px; }
+  .empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.4; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 700px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border); max-height: 200px; }
+    header { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="grid-overlay"></div>
+
+<header>
+  <div class="logo-block">
+    <div class="logo-eyebrow">// environmental data analysis</div>
+    <h1>Water<span>Watch</span></h1>
+    <div class="tagline">River &amp; Watershed Monitoring · Interactive Demo · Sample Dataset Preloaded</div>
+  </div>
+  <div class="header-links">
+    <a href="https://github.com/GaiyatriJain/River-Watershed-Data-Analyzer" class="btn-github" target="_blank">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      View Source
+    </a>
+  </div>
+</header>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-title">Analysis Menu</div>
+    <div class="menu-list">
+      <div class="menu-item active" onclick="switchView('summary')">
+        <span class="menu-num">01</span> Summary Statistics
+      </div>
+      <div class="menu-item" onclick="switchView('flood')">
+        <span class="menu-num">02</span> Flood Risk Alerts
+      </div>
+      <div class="menu-item" onclick="switchView('pollution')">
+        <span class="menu-num">03</span> Pollution Spikes
+      </div>
+      <div class="menu-item" onclick="switchView('station')">
+        <span class="menu-num">04</span> Station Report
+      </div>
+      <div class="menu-item" onclick="switchView('export')">
+        <span class="menu-num">05</span> Export Report
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div><span class="status-dot"></span>85 readings loaded</div>
+      <div style="margin-top:4px">5 monitoring stations</div>
+      <div style="margin-top:4px;color:#3a5a77">Jan–Dec 2024</div>
+    </div>
+  </aside>
+
+  <!-- MAIN PANEL -->
+  <div class="main-panel">
+    <div class="panel-header">
+      <div>
+        <div class="panel-title" id="panel-title">Summary Statistics</div>
+        <div class="panel-sub" id="panel-sub">All readings · 5 stations · Full year 2024</div>
+      </div>
+    </div>
+    <div class="panel-content">
+
+      <!-- ── VIEW: SUMMARY ── -->
+      <div class="view active" id="view-summary">
+        <div class="stats-grid">
+          <div class="stat-card highlight">
+            <div class="stat-label">Total Readings</div>
+            <div class="stat-value">85</div>
+            <div class="stat-unit">across 5 stations</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Avg Flow Rate</div>
+            <div class="stat-value">567</div>
+            <div class="stat-unit">m³/s</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Avg Water Level</div>
+            <div class="stat-value">3.22</div>
+            <div class="stat-unit">metres above baseline</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Avg Temperature</div>
+            <div class="stat-value">13.2</div>
+            <div class="stat-unit">°C</div>
+          </div>
+          <div class="stat-card warn">
+            <div class="stat-label">Avg Pollution Index</div>
+            <div class="stat-value">27.4</div>
+            <div class="stat-unit">out of 100</div>
+          </div>
+          <div class="stat-card highlight">
+            <div class="stat-label">Peak Flow</div>
+            <div class="stat-value">3103</div>
+            <div class="stat-unit">m³/s</div>
+            <div class="stat-sub">↑ GlacierFork_C · May 28</div>
+          </div>
+          <div class="stat-card danger">
+            <div class="stat-label">Worst Pollution</div>
+            <div class="stat-value">74.8</div>
+            <div class="stat-unit">/ 100</div>
+            <div class="stat-sub">↑ MillCreek_B · Dec 27</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Lowest Flow</div>
+            <div class="stat-value">27.6</div>
+            <div class="stat-unit">m³/s</div>
+            <div class="stat-sub">MillCreek_B · Aug 2</div>
+          </div>
+        </div>
+
+        <div class="section-title">Avg Pollution by Station</div>
+        <div class="bar-wrap" id="pollution-bars"></div>
+
+        <div class="section-title">Avg Flow Rate by Station</div>
+        <div class="bar-wrap" id="flow-bars"></div>
+      </div>
+
+      <!-- ── VIEW: FLOOD ── -->
+      <div class="view" id="view-flood">
+        <div class="controls-row">
+          <div class="ctrl-group">
+            <div class="ctrl-label">Water Level Threshold (m)</div>
+            <input class="ctrl-input" id="flood-level" type="number" value="4.5" step="0.1">
+          </div>
+          <div class="ctrl-group">
+            <div class="ctrl-label">Flow Rate Threshold (m³/s)</div>
+            <input class="ctrl-input" id="flood-flow" type="number" value="800" step="50">
+          </div>
+          <button class="ctrl-btn" onclick="runFlood()">▶ Run Analysis</button>
+        </div>
+        <div id="flood-results"></div>
+      </div>
+
+      <!-- ── VIEW: POLLUTION ── -->
+      <div class="view" id="view-pollution">
+        <div class="controls-row">
+          <div class="ctrl-group">
+            <div class="ctrl-label">Pollution Index Threshold (0–100)</div>
+            <input class="ctrl-input" id="poll-thresh" type="number" value="60" step="5" min="0" max="100">
+          </div>
+          <button class="ctrl-btn" onclick="runPollution()">▶ Run Analysis</button>
+        </div>
+        <div id="pollution-results"></div>
+      </div>
+
+      <!-- ── VIEW: STATION ── -->
+      <div class="view" id="view-station">
+        <div class="station-tabs" id="station-tabs"></div>
+        <div id="station-results"></div>
+      </div>
+
+      <!-- ── VIEW: EXPORT ── -->
+      <div class="view" id="view-export">
+        <div class="controls-row">
+          <div class="ctrl-group">
+            <div class="ctrl-label">Pollution Threshold for Export</div>
+            <input class="ctrl-input" id="exp-thresh" type="number" value="60" step="5" min="0" max="100">
+          </div>
+          <button class="ctrl-btn" onclick="runExport()">▶ Generate Report</button>
+        </div>
+        <div id="export-terminal"></div>
+        <div id="export-btn-wrap"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   DATASET  — matches sample_data.csv exactly
+═══════════════════════════════════════════════════ */
+const DATA = [
+  ["RiverMouth_A","2024-01-03",523.4,3.21,8.2,22.1],
+  ["RiverMouth_A","2024-01-10",611.2,3.78,7.9,25.4],
+  ["RiverMouth_A","2024-01-17",489.0,3.05,8.6,19.8],
+  ["RiverMouth_A","2024-02-07",745.8,4.62,6.1,31.0],
+  ["RiverMouth_A","2024-02-14",910.3,5.10,5.8,38.2],
+  ["RiverMouth_A","2024-02-21",1023.7,5.89,5.5,44.7],
+  ["RiverMouth_A","2024-03-06",782.1,4.83,7.1,29.5],
+  ["RiverMouth_A","2024-03-13",634.9,3.97,9.4,26.2],
+  ["RiverMouth_A","2024-04-01",412.6,2.88,12.3,18.4],
+  ["RiverMouth_A","2024-04-15",388.4,2.71,14.1,17.9],
+  ["RiverMouth_A","2024-05-01",299.2,2.30,17.8,15.1],
+  ["RiverMouth_A","2024-05-15",276.5,2.14,19.4,14.8],
+  ["RiverMouth_A","2024-06-01",241.8,1.99,22.1,13.2],
+  ["RiverMouth_A","2024-06-15",217.3,1.87,23.6,12.9],
+  ["RiverMouth_A","2024-07-01",198.4,1.75,25.1,11.7],
+  ["RiverMouth_A","2024-07-15",184.2,1.66,26.3,10.5],
+  ["RiverMouth_A","2024-08-01",171.9,1.58,27.4,10.1],
+  ["RiverMouth_A","2024-09-01",224.5,1.91,24.2,13.4],
+  ["RiverMouth_A","2024-10-01",356.8,2.54,18.7,16.6],
+  ["RiverMouth_A","2024-11-01",498.1,3.12,12.1,21.3],
+  ["RiverMouth_A","2024-12-01",601.4,3.72,7.3,24.9],
+  ["MillCreek_B","2024-01-05",88.3,1.44,6.9,41.2],
+  ["MillCreek_B","2024-01-19",101.7,1.62,6.4,48.7],
+  ["MillCreek_B","2024-02-02",114.5,1.78,5.7,55.3],
+  ["MillCreek_B","2024-02-16",142.3,1.99,5.1,63.8],
+  ["MillCreek_B","2024-02-23",158.9,2.14,4.8,71.4],
+  ["MillCreek_B","2024-03-01",131.2,1.91,6.2,58.9],
+  ["MillCreek_B","2024-03-15",109.6,1.71,8.8,49.1],
+  ["MillCreek_B","2024-04-05",78.4,1.32,13.1,37.6],
+  ["MillCreek_B","2024-04-19",71.2,1.24,15.4,34.2],
+  ["MillCreek_B","2024-05-03",58.9,1.11,18.8,28.5],
+  ["MillCreek_B","2024-05-17",53.4,1.05,20.9,25.8],
+  ["MillCreek_B","2024-06-07",44.8,0.97,24.3,22.4],
+  ["MillCreek_B","2024-07-05",31.2,0.83,28.1,18.9],
+  ["MillCreek_B","2024-08-02",27.6,0.79,29.4,17.4],
+  ["MillCreek_B","2024-09-06",39.5,0.91,25.6,20.2],
+  ["MillCreek_B","2024-10-04",61.3,1.17,17.2,31.4],
+  ["MillCreek_B","2024-11-01",79.8,1.35,11.4,39.1],
+  ["MillCreek_B","2024-12-06",96.4,1.53,7.1,44.5],
+  ["MillCreek_B","2024-12-27",168.2,2.21,4.3,74.8],
+  ["GlacierFork_C","2024-01-08",1243.6,6.14,2.1,8.4],
+  ["GlacierFork_C","2024-02-12",1189.4,5.98,1.8,7.9],
+  ["GlacierFork_C","2024-03-18",1401.2,6.55,3.4,9.1],
+  ["GlacierFork_C","2024-04-09",1887.4,7.82,5.2,11.3],
+  ["GlacierFork_C","2024-04-23",2314.9,9.04,6.8,14.7],
+  ["GlacierFork_C","2024-05-14",2801.3,10.23,8.1,17.2],
+  ["GlacierFork_C","2024-05-28",3102.8,11.44,9.3,19.8],
+  ["GlacierFork_C","2024-06-11",2988.4,11.01,10.6,18.4],
+  ["GlacierFork_C","2024-06-25",2674.5,10.12,11.8,16.1],
+  ["GlacierFork_C","2024-07-09",2103.7,8.77,13.4,13.9],
+  ["GlacierFork_C","2024-07-23",1786.2,7.61,14.2,11.7],
+  ["GlacierFork_C","2024-08-06",1512.8,6.88,13.9,10.4],
+  ["GlacierFork_C","2024-09-03",1388.1,6.41,11.2,9.3],
+  ["GlacierFork_C","2024-10-01",1298.4,6.19,7.6,8.8],
+  ["GlacierFork_C","2024-11-05",1224.7,6.03,4.1,8.1],
+  ["GlacierFork_C","2024-12-03",1201.3,5.96,2.3,7.7],
+  ["Estuary_D","2024-01-11",334.7,2.44,9.8,52.3],
+  ["Estuary_D","2024-01-25",378.2,2.68,9.1,57.8],
+  ["Estuary_D","2024-02-08",412.9,2.89,8.4,62.4],
+  ["Estuary_D","2024-02-22",489.1,3.18,7.8,68.9],
+  ["Estuary_D","2024-03-07",521.4,3.37,8.9,71.2],
+  ["Estuary_D","2024-03-21",498.7,3.24,10.4,65.7],
+  ["Estuary_D","2024-04-04",441.2,3.01,12.8,58.4],
+  ["Estuary_D","2024-04-18",389.6,2.74,15.1,51.9],
+  ["Estuary_D","2024-05-02",312.4,2.38,18.4,43.6],
+  ["Estuary_D","2024-05-30",278.1,2.19,21.7,38.2],
+  ["Estuary_D","2024-06-13",244.8,2.01,24.6,33.9],
+  ["Estuary_D","2024-07-11",198.3,1.76,27.8,28.4],
+  ["Estuary_D","2024-08-08",176.4,1.62,29.1,25.7],
+  ["Estuary_D","2024-09-05",214.7,1.88,26.2,30.3],
+  ["Estuary_D","2024-10-03",298.4,2.31,20.4,41.2],
+  ["Estuary_D","2024-11-07",367.9,2.61,14.3,49.6],
+  ["Estuary_D","2024-12-05",421.3,2.92,9.7,55.8],
+  ["HeadwaterSpring_E","2024-01-15",44.2,0.89,4.4,5.2],
+  ["HeadwaterSpring_E","2024-02-19",49.8,0.94,3.9,5.8],
+  ["HeadwaterSpring_E","2024-03-25",58.4,1.03,6.1,6.4],
+  ["HeadwaterSpring_E","2024-04-22",74.1,1.21,9.8,7.9],
+  ["HeadwaterSpring_E","2024-05-20",91.3,1.38,14.2,9.1],
+  ["HeadwaterSpring_E","2024-06-17",68.7,1.16,18.9,7.4],
+  ["HeadwaterSpring_E","2024-07-22",51.2,0.98,22.6,6.1],
+  ["HeadwaterSpring_E","2024-08-19",41.8,0.88,24.1,5.4],
+  ["HeadwaterSpring_E","2024-09-16",47.4,0.93,20.3,5.9],
+  ["HeadwaterSpring_E","2024-10-14",56.9,1.02,15.7,6.7],
+  ["HeadwaterSpring_E","2024-11-11",62.3,1.08,9.2,7.2],
+  ["HeadwaterSpring_E","2024-12-09",47.1,0.93,5.1,5.6],
+];
+
+const STATIONS = [...new Set(DATA.map(r => r[0]))];
+
+/* ═══ HELPERS ═══ */
+function avg(arr) { return arr.reduce((a,b)=>a+b,0)/arr.length; }
+function fmt(n, d=2) { return n.toFixed(d); }
+
+function pollColor(v) {
+  if (v > 65) return 'var(--red)';
+  if (v > 45) return 'var(--yellow)';
+  return 'var(--water)';
+}
+function pollBadge(v) {
+  if (v > 65) return `<span class="badge badge-red">${fmt(v,1)}</span>`;
+  if (v > 45) return `<span class="badge badge-yellow">${fmt(v,1)}</span>`;
+  return `<span class="badge badge-green">${fmt(v,1)}</span>`;
+}
+function flowBadge(v, thresh) {
+  return v >= thresh
+    ? `<span class="badge badge-red">${fmt(v,1)}</span>`
+    : `<span class="badge badge-blue">${fmt(v,1)}</span>`;
+}
+function levelBadge(v, thresh) {
+  return v >= thresh
+    ? `<span class="badge badge-red">${fmt(v,2)}</span>`
+    : `<span class="badge badge-blue">${fmt(v,2)}</span>`;
+}
+
+/* ═══ VIEW SWITCHING ═══ */
+const TITLES = {
+  summary:   ['Summary Statistics',   'All readings · 5 stations · Full year 2024'],
+  flood:     ['Flood Risk Alerts',    'Flag readings exceeding level & flow thresholds'],
+  pollution: ['Pollution Spike Detection', 'Identify readings above pollution threshold'],
+  station:   ['Station Report',       'Per-station breakdown of all readings'],
+  export:    ['Export Report',        'Download filtered CSV for further analysis'],
+};
+
+function switchView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  document.querySelector(`[onclick="switchView('${id}')"]`).classList.add('active');
+  document.getElementById('panel-title').textContent = TITLES[id][0];
+  document.getElementById('panel-sub').textContent   = TITLES[id][1];
+
+  if (id === 'flood')     runFlood();
+  if (id === 'pollution') runPollution();
+  if (id === 'station')   initStation();
+  if (id === 'export')    runExport();
+}
+
+/* ═══ SUMMARY BARS ═══ */
+function buildBars() {
+  // pollution bars
+  const pb = document.getElementById('pollution-bars');
+  const maxP = Math.max(...STATIONS.map(s => avg(DATA.filter(r=>r[0]===s).map(r=>r[5]))));
+  pb.innerHTML = STATIONS.map(s => {
+    const v = avg(DATA.filter(r=>r[0]===s).map(r=>r[5]));
+    const pct = (v / 100) * 100;
+    const col = pollColor(v);
+    return `<div class="bar-row">
+      <div class="bar-label">${s}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div>
+      <div class="bar-val" style="color:${col}">${fmt(v,1)}</div>
+    </div>`;
+  }).join('');
+
+  // flow bars
+  const fb = document.getElementById('flow-bars');
+  const maxF = Math.max(...STATIONS.map(s => avg(DATA.filter(r=>r[0]===s).map(r=>r[2]))));
+  fb.innerHTML = STATIONS.map(s => {
+    const v = avg(DATA.filter(r=>r[0]===s).map(r=>r[2]));
+    const pct = (v / maxF) * 100;
+    return `<div class="bar-row">
+      <div class="bar-label">${s}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--water)"></div></div>
+      <div class="bar-val">${fmt(v,0)} m³/s</div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══ FLOOD ═══ */
+function runFlood() {
+  const lev  = parseFloat(document.getElementById('flood-level').value) || 4.5;
+  const flow = parseFloat(document.getElementById('flood-flow').value)  || 800;
+  const hits = DATA.filter(r => r[3] >= lev || r[2] >= flow);
+  const el   = document.getElementById('flood-results');
+
+  if (!hits.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">✓</div>No readings exceed the thresholds. All clear!</div>`;
+    return;
+  }
+
+  const rows = hits.map(r => {
+    const isLev  = r[3] >= lev;
+    const isFlow = r[2] >= flow;
+    const reason = isLev && isFlow ? 'both' : isLev ? 'level' : 'flow';
+    return `<tr>
+      <td>${r[0]}</td>
+      <td>${r[1]}</td>
+      <td>${levelBadge(r[3], lev)} m</td>
+      <td>${flowBadge(r[2], flow)} m³/s</td>
+      <td>${reason === 'both'
+        ? '<span class="badge badge-red">BOTH</span>'
+        : reason === 'level'
+        ? '<span class="badge badge-yellow">LEVEL</span>'
+        : '<span class="badge badge-yellow">FLOW</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="section-title">${hits.length} alert(s) found</div>
+    <table class="data-table">
+      <thead><tr><th>Station</th><th>Date</th><th>Water Level</th><th>Flow Rate</th><th>Trigger</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+/* ═══ POLLUTION ═══ */
+function runPollution() {
+  const thresh = parseFloat(document.getElementById('poll-thresh').value) || 60;
+  const hits   = DATA.filter(r => r[5] > thresh);
+  const el     = document.getElementById('pollution-results');
+
+  if (!hits.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">✓</div>No pollution spikes above ${thresh} detected.</div>`;
+    return;
+  }
+
+  const rows = hits.map(r => `<tr>
+    <td>${r[0]}</td>
+    <td>${r[1]}</td>
+    <td>${pollBadge(r[5])}</td>
+    <td>${fmt(r[4],1)} °C</td>
+    <td>${fmt(r[2],1)} m³/s</td>
+  </tr>`).join('');
+
+  el.innerHTML = `
+    <div class="section-title">${hits.length} spike(s) detected above ${thresh}</div>
+    <table class="data-table">
+      <thead><tr><th>Station</th><th>Date</th><th>Pollution Index</th><th>Temp</th><th>Flow Rate</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+/* ═══ STATION ═══ */
+let activeStation = STATIONS[0];
+
+function initStation() {
+  const tabs = document.getElementById('station-tabs');
+  tabs.innerHTML = STATIONS.map(s =>
+    `<div class="station-tab${s===activeStation?' active':''}" onclick="selectStation('${s}')">${s}</div>`
+  ).join('');
+  renderStation(activeStation);
+}
+
+function selectStation(s) {
+  activeStation = s;
+  document.querySelectorAll('.station-tab').forEach(t => {
+    t.classList.toggle('active', t.textContent === s);
+  });
+  renderStation(s);
+}
+
+function renderStation(s) {
+  const rows = DATA.filter(r => r[0] === s);
+  const avgFlow  = avg(rows.map(r=>r[2]));
+  const avgLevel = avg(rows.map(r=>r[3]));
+  const avgTemp  = avg(rows.map(r=>r[4]));
+  const avgPoll  = avg(rows.map(r=>r[5]));
+
+  const tableRows = rows.map(r => `<tr>
+    <td>${r[1]}</td>
+    <td>${fmt(r[2],1)}</td>
+    <td>${fmt(r[3],2)}</td>
+    <td>${fmt(r[4],1)}</td>
+    <td>${pollBadge(r[5])}</td>
+  </tr>`).join('');
+
+  document.getElementById('station-results').innerHTML = `
+    <div class="stats-grid" style="margin-bottom:20px">
+      <div class="stat-card"><div class="stat-label">Avg Flow</div><div class="stat-value">${fmt(avgFlow,0)}</div><div class="stat-unit">m³/s</div></div>
+      <div class="stat-card"><div class="stat-label">Avg Level</div><div class="stat-value">${fmt(avgLevel,2)}</div><div class="stat-unit">m</div></div>
+      <div class="stat-card"><div class="stat-label">Avg Temp</div><div class="stat-value">${fmt(avgTemp,1)}</div><div class="stat-unit">°C</div></div>
+      <div class="stat-card ${avgPoll>60?'danger':avgPoll>40?'warn':''}">
+        <div class="stat-label">Avg Pollution</div><div class="stat-value">${fmt(avgPoll,1)}</div><div class="stat-unit">/ 100</div>
+      </div>
+    </div>
+    <div class="section-title">${rows.length} readings</div>
+    <table class="data-table">
+      <thead><tr><th>Date</th><th>Flow (m³/s)</th><th>Level (m)</th><th>Temp (°C)</th><th>Pollution</th></tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>`;
+}
+
+/* ═══ EXPORT ═══ */
+let lastExportData = null;
+
+function runExport() {
+  const thresh = parseFloat(document.getElementById('exp-thresh').value) || 60;
+  const hits   = DATA.filter(r => r[5] > thresh);
+  lastExportData = hits;
+
+  const lines = hits.map(r =>
+    `<span class="t-val">${r[0]}</span>  <span class="t-dim">${r[1]}</span>  poll=<span class="t-warn">${fmt(r[5],1)}</span>  temp=${fmt(r[4],1)}°C`
+  ).join('\n');
+
+  document.getElementById('export-terminal').innerHTML = `<div class="terminal-box"><span class="t-prompt">$ </span><span class="t-white">waterwatch --export --pollution-threshold ${thresh}</span>
+
+<span class="t-dim">Loading sample_data.csv ... 85 readings OK</span>
+<span class="t-dim">Filtering pollution_index > ${thresh} ...</span>
+
+${lines || '<span class="t-dim">No rows match threshold.</span>'}
+
+<span class="t-dim">────────────────────────────────</span>
+<span class="t-white">Exported ${hits.length} row(s)</span>  <span class="t-val">✓</span>
+</div>`;
+
+  const bw = document.getElementById('export-btn-wrap');
+  if (hits.length > 0) {
+    bw.innerHTML = `<button class="export-btn" onclick="downloadCSV()">⬇ Download report.csv</button>`;
+  } else {
+    bw.innerHTML = '';
+  }
+}
+
+function downloadCSV() {
+  if (!lastExportData || !lastExportData.length) return;
+  const header = 'station,date,flow_rate,water_level,temperature,pollution_index\n';
+  const rows   = lastExportData.map(r => r.join(',')).join('\n');
+  const blob   = new Blob([header + rows], { type: 'text/csv' });
+  const a      = document.createElement('a');
+  a.href       = URL.createObjectURL(blob);
+  a.download   = 'report.csv';
+  a.click();
+}
+
+/* ═══ INIT ═══ */
+buildBars();
+runFlood();
+runPollution();
+initStation();
+runExport();
+</script>
+</body>
+</html>

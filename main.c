@@ -238,7 +238,7 @@ void export_pollution_report(const Database *db, float threshold, const char *ou
     FILE *fp = fopen(out_path, "w");
     if (!fp) { fprintf(stderr, "Could not create '%s'\n", out_path); return; }
 
-    fprintf(fp, "WaterWatch Pollution Report\n");
+    fprintf(fp, "Pollution Report\n");
     fprintf(fp, "Threshold: %.1f\n", threshold);
     fprintf(fp, "station,date,pollution_index,temperature\n");
 
@@ -259,7 +259,6 @@ void export_pollution_report(const Database *db, float threshold, const char *ou
 
 void print_menu(void) {
     printf("╔══════════════════════════════════════╗\n");
-    printf("║         W A T E R W A T C H          ║\n");
     printf("║   River & Watershed Data Analyzer    ║\n");
     printf("╠══════════════════════════════════════╣\n");
     printf("║  1. Load CSV data file               ║\n");
@@ -279,7 +278,7 @@ int main(void) {
     int choice;
     char buf[MAX_LINE];
 
-    printf("\nWelcome to WaterWatch.\n\n");
+    printf("\nWelcome to the Water Data Analyzer.\n\n");
 
     while (1) {
         print_menu();

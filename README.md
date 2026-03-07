@@ -40,7 +40,6 @@ On launch you get an interactive menu. Load a CSV first, then run any analysis.
 
 ```
 ╔══════════════════════════════════════╗
-║         W A T E R W A T C H          ║
 ║   River & Watershed Data Analyzer    ║
 ╠══════════════════════════════════════╣
 ║  1. Load CSV data file               ║

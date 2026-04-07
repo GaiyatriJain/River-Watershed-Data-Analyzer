@@ -1,38 +1,17 @@
 # River & Watershed Data Analyzer
 
-A command-line tool written in C that ingests river monitoring station data and lets you explore it interactively. Designed to support real-world conservation workflows: identify flood risks, spot pollution spikes, and understand long-term hydrological trends.
+A command-line tool written in C that takes river monitoring station data and lets you explore it interactively. Practically, this is meant to support conservation workflows looking at things like flood risks, pollution spikes, and understanding long-term hydrological trends. Personally, this was a project based way for me to learn C which was a language I was excited to learn.
 
 ---
 
 ## Features
 
-| Feature | Description |
-|---|---|
-| 📂 CSV Loader | Parses multi-station river monitoring data from any `.csv` file |
-| 📊 Summary Stats | Mean flow rate, water level, temperature, and pollution index across all readings |
-| 🚨 Flood Risk Alerts | Flags any reading where water level or flow rate exceeds configurable thresholds |
-| ☠️ Pollution Spikes | Identifies readings above a pollution index cutoff |
-| 🏞️ Station Report | Per-station breakdown of all readings and averages |
-| 💾 Export | Saves pollution spike results to a new `.csv` for further analysis |
-
----
-
-## Building
-
-Requires `gcc` and `make`.
-
-```bash
-git clone https://github.com/yourname/waterwatch.git
-cd waterwatch
-make
-```
-
-Run with:
-```bash
-./waterwatch
-```
-
----
+CSV Loads -> can take many stations' river monitoring data from a csv
+Summarizes Statistics -> Finds mean flow rate, water level, temperature, and pollution index across all readings
+Alerts to Flood Risks -> Flags any reading where water level/flow rate exceeds thrshold
+Shows Pollution Spikes -> Identifies readings above a pollution index threshold
+Gives Station Reports -> summarizes all readings and averages for stations
+Exports Data -> Saves results to a new `.csv` for further analysis 
 
 ## Usage
 
@@ -74,35 +53,7 @@ RiverMouth_A,2024-01-03,523.4,3.21,8.2,22.1
 | `temperature` | °C | Water temperature |
 | `pollution_index` | 0–100 | 0 = pristine, 100 = critically polluted |
 
-You can export your own monitoring data from most environmental agency databases (e.g., USGS Water Resources, Environment Canada) in CSV format and drop it straight in.
-
----
-
-## Technical Design
-
-```
-main.c
-├── Reading struct          — one record per monitoring event
-├── Database struct         — head pointer + count (linked list)
-├── load_csv()             — File I/O + tokenisation with strtok
-├── summary_stats()        — single-pass aggregation via pointer traversal
-├── flood_risk()           — threshold filtering with user input
-├── pollution_spikes()     — threshold filtering + reporting
-├── station_report()       — filtered traversal by station name
-├── export_pollution_report() — File I/O output to CSV
-└── main()                 — menu loop with fgets-based input
-```
-
-**C concepts used:**
-- `struct` for typed data records
-- Singly linked list with dynamic `malloc` / `free`
-- File I/O with `fopen` / `fgets` / `fclose`
-- Pointer arithmetic and traversal
-- `strtok` for CSV tokenisation
-- `atof` / `atoi` for string-to-number parsing
-- Graceful error handling for bad files and malformed rows
-
----
+You can export your own monitoring data from most environmental agency databases like Environment Canada in CSV format and use it straight in this code. 
 
 ## Sample Output
 
@@ -123,11 +74,12 @@ main.c
 
 ## Limitations & Future Work
 
-- Station deduplication is capped at 256 unique stations (trivially adjustable)
-- Date filtering (e.g. "show me summer readings only") would be a natural next feature
-- A `gnuplot` integration could visualise flow-over-time graphs directly from the terminal
-- Currently single-threaded; large datasets (100k+ rows) load fine but analysis could be parallelised
+- Station deduplication is capped at 256 unique stations (thats adjustable though)
+- no date filtering 
 
+
+## AI statement
+This was my first github project so i asked ai for formatting stuff because i wasn't sure what the convention was. It told me how to make my code readable by adding comments and helped me make my project shippable. 
 ---
 
 ## License
